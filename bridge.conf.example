@@ -1,0 +1,77 @@
+# Account / API
+token                   =
+upgrade_account         = true
+
+# Engine
+engine                  =
+engine_hash             = 16
+engine_threads          = 1
+
+# Time management
+move_overhead           = 150
+correspondence_movetime = 10000
+
+# Opening book
+book                    =
+book_depth              = 0
+
+# Chat
+chat_eval               = true
+chat_edge_cp            = 60
+chat_edge_moves         = 3
+chat_win_cp             = 120
+chat_win_moves          = 2
+chat_crush_cp           = 500
+chat_crush_moves        = 1
+chat_draw_cp            = 25
+chat_draw_moves         = 6
+chat_draw_min_ply       = 20
+chat_mate_close         = 3
+
+# Chat commands (repeatable): trigger : condition : response
+# chat_command          = position? : always : {report}
+# chat_command          = !eval : always : eval {eval} at depth {depth}
+# chat_command          = !clock : our_turn : I have {clock}s left
+# chat_command          = gg : always : good game|well played|thanks for the game
+# chat_command          = !edge : eval >= 100 : I think I have a small edge here
+
+# Draws
+draw_offer              = true
+draw_offer_cp           = 15
+draw_offer_moves        = 4
+draw_offer_min_ply      = 20
+draw_accept             = true
+draw_accept_cp          = 30
+
+# Game handling
+opponent_idle_abort     = 60
+claim_win               = true
+
+# Rematch
+rematch                 = true
+rematch_on              = win,lose,draw
+rematch_min_rating_diff = 1
+rematch_max_rating_diff = 0
+rematch_color           = random
+
+# Accepting challenges
+accept_variants         = standard
+accept_rated            = true
+accept_casual           = true
+accept_correspondence   = false
+accept_min_seconds      = 0
+accept_max_seconds      = 0
+accept_min_increment    = 0
+
+# Sending challenges
+# challenge_users       = botfriend,somebot
+challenge_bots          = false
+challenge_variants      =
+challenge_interval      = 60
+challenge_initial_delay = 30
+challenge_limit         = 180
+challenge_increment     = 2
+challenge_rated         = true
+challenge_variant       = standard
+challenge_color         = random
+challenge_count         = 0
