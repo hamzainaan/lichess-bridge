@@ -841,32 +841,41 @@ namespace
 	{
 		std::string error;
 
-		if (!context.engine.running())
+		for (int attempt = 0; attempt < 2; ++attempt)
 		{
-			ensureEngine(context);
 			if (!context.engine.running())
 			{
-				util::fail("no engine available");
-				return {};
+				ensureEngine(context);
+				if (!context.engine.running())
+				{
+					util::fail("no engine available");
+					return {};
+				}
+				context.engine.setOption("UCI_Chess960", variant == "chess960" ? "true" : "false", error);
 			}
-			context.engine.setOption("UCI_Chess960", variant == "chess960" ? "true" : "false", error);
-		}
 
-		SearchResult result;
-		if (!searchWith(context.engine, result, error))
-		{
+			SearchResult result;
+			if (searchWith(context.engine, result, error))
+			{
+				searched = true;
+				lastResult = result;
+				lastResultPly = static_cast<int>(moves.size());
+				util::statusSet(1, "");
+				if (result.bestMove == "0000")
+					return {};
+				return result.bestMove;
+			}
+
 			util::statusSet(1, "");
-			util::fail("engine search failed: " + error);
-			return {};
+			if (attempt == 0)
+			{
+				util::warn("game " + context.gameId + " engine search failed: " + error + ", retrying");
+				context.engine.stop();
+			}
 		}
-		searched = true;
 
-		lastResult = result;
-		lastResultPly = static_cast<int>(moves.size());
-		util::statusSet(1, "");
-		if (result.bestMove == "0000")
-			return {};
-		return result.bestMove;
+		util::fail("engine search failed: " + error);
+		return {};
 	}
 
 	std::string Game::chooseMove()

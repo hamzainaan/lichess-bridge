@@ -329,19 +329,38 @@ bool Engine::search(const std::string &parameters, int timeoutMs, SearchResult &
 	if (!writeLine("go " + parameters, error))
 		return false;
 
-	const int64_t deadline = util::nowMs() + timeoutMs;
+	constexpr int stopGraceMs = 5000;
+	int64_t deadline = util::nowMs() + timeoutMs;
+	bool stopSent = false;
 	std::string line;
 	while (true)
 	{
 		const int64_t remaining = deadline - util::nowMs();
 		if (remaining <= 0)
 		{
-			error = "engine timeout";
+			error = stopSent ? "engine did not answer the stop" : "engine timeout";
 			stop();
 			return false;
 		}
 		if (!readLine(line, static_cast<int>(remaining), error))
-			return false;
+		{
+			if (stopSent)
+			{
+				stop();
+				return false;
+			}
+
+			util::warn("engine overran its search budget, asking it to stop");
+			std::string ignored;
+			if (!writeLine("stop", ignored))
+			{
+				stop();
+				return false;
+			}
+			stopSent = true;
+			deadline = util::nowMs() + stopGraceMs;
+			continue;
+		}
 
 		if (line.rfind("info ", 0) == 0)
 		{
@@ -543,5 +562,10 @@ bool startEngine(Engine &engine, const EngineSettings &settings, std::string &er
 	for (const auto &[name, value] : settings.options)
 		if (!engine.setOption(name, value, error))
 			return false;
+
+	SearchResult warmup;
+	std::string warmupError;
+	if (!engine.search("depth 1", 60000, warmup, nullptr, warmupError))
+		util::warn("engine warm-up search failed: " + warmupError);
 	return true;
 }
