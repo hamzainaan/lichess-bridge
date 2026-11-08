@@ -165,6 +165,21 @@ again. Connections use TCP keepalive (15s idle, 5s interval, 3 probes) so an
 idle stream notices a dead link on its own instead of waiting for the next
 write.
 
+## Draining
+
+`SIGUSR1` asks the bridge to stop once it is free. It declines every new
+challenge, sends no challenges or rematch offers, finishes the game in
+progress, and exits with status 0. Without a game it exits at once.
+`SIGINT` and `SIGTERM` still stop it immediately, even in the middle of a game.
+
+```
+kill -USR1 <pid>
+systemctl --user kill -s SIGUSR1 --kill-whom=main lichess-bridge
+```
+
+The signal does not exist on Windows, so draining is available on Linux and
+macOS only.
+
 ## Rematch
 
 With `rematch = true`, a finished game is followed by a challenge to the same
