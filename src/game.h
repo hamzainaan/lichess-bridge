@@ -18,6 +18,7 @@ struct GameContext
 	std::string username;
 	std::string colorHint;
 	const std::atomic<bool> &stop;
+	const std::atomic<bool> &drain;
 };
 
 void playGame(GameContext &context);
