@@ -114,13 +114,21 @@ namespace plat
 	int pollRead(socket_t socket, int timeoutMs)
 	{
 		pollfd descriptor{ socket, POLLIN, 0 };
-		return poll(&descriptor, 1, timeoutMs);
+		int ready;
+		do
+			ready = poll(&descriptor, 1, timeoutMs);
+		while (ready < 0 && errno == EINTR);
+		return ready;
 	}
 
 	int pollWrite(socket_t socket, int timeoutMs)
 	{
 		pollfd descriptor{ socket, POLLOUT, 0 };
-		return poll(&descriptor, 1, timeoutMs);
+		int ready;
+		do
+			ready = poll(&descriptor, 1, timeoutMs);
+		while (ready < 0 && errno == EINTR);
+		return ready;
 	}
 
 	void localTime(std::time_t seconds, std::tm &out)
