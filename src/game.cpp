@@ -1196,7 +1196,7 @@ void playGame(GameContext &context)
 
 	util::info("game " + context.gameId + " over: " + game.resultText());
 	game.showResult();
-	if (!context.stop && game.rematchWanted())
+	if (!context.stop && !context.drain && game.rematchWanted())
 		game.offerRematch();
 	ensureEngine(context);
 	context.engine.newGame(error);

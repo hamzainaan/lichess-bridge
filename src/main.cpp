@@ -18,10 +18,16 @@
 namespace
 {
 	std::atomic<bool> stopFlag{ false };
+	std::atomic<bool> drainFlag{ false };
 
 	void onSignal(int)
 	{
 		stopFlag.store(true);
+	}
+
+	void onDrain(int)
+	{
+		drainFlag.store(true);
 	}
 
 	std::string joinList(const std::vector<std::string> &items, const char *separator)
@@ -157,6 +163,9 @@ int main(int argc, char **argv)
 #endif
 	std::signal(SIGINT, onSignal);
 	std::signal(SIGTERM, onSignal);
+#ifdef SIGUSR1
+	std::signal(SIGUSR1, onDrain);
+#endif
 
 	const std::string configPath = argc > 1 ? argv[1] : "bridge.conf";
 	Config config;
@@ -236,7 +245,7 @@ int main(int argc, char **argv)
 		if (gameThread.joinable())
 			gameThread.join();
 		gameThread = std::thread([&, gameId, colorHint] {
-			GameContext context{ client, engine, book, config, gameId, username, colorHint, stopFlag };
+			GameContext context{ client, engine, book, config, gameId, username, colorHint, stopFlag, drainFlag };
 			playGame(context);
 			matchState.store(IDLE);
 		});
@@ -253,14 +262,14 @@ int main(int argc, char **argv)
 			size_t next = 0;
 			int sent = 0;
 
-			for (int tick = 0; tick < config.challengeInitialDelaySeconds * 5 && !stopFlag; ++tick)
+			for (int tick = 0; tick < config.challengeInitialDelaySeconds * 5 && !stopFlag && !drainFlag; ++tick)
 				util::sleepMs(200);
 
-			while (!stopFlag && (config.challengeCount == 0 || sent < config.challengeCount))
+			while (!stopFlag && !drainFlag && (config.challengeCount == 0 || sent < config.challengeCount))
 			{
-				while (!stopFlag && matchState.load() != IDLE)
+				while (!stopFlag && !drainFlag && matchState.load() != IDLE)
 					util::sleepMs(200);
-				if (stopFlag)
+				if (stopFlag || drainFlag)
 					break;
 
 				std::string opponent;
@@ -311,11 +320,32 @@ int main(int argc, char **argv)
 						util::warn("challenge to " + opponent + " failed: " + callError);
 				}
 
-				for (int tick = 0; tick < config.challengeIntervalSeconds * 5 && !stopFlag; ++tick)
+				for (int tick = 0; tick < config.challengeIntervalSeconds * 5 && !stopFlag && !drainFlag; ++tick)
 					util::sleepMs(200);
 			}
 		});
 	}
+
+	std::thread drainWatcher([&] {
+		bool announced = false;
+		while (!stopFlag)
+		{
+			if (drainFlag.load())
+			{
+				if (!announced)
+				{
+					util::info("draining, the bridge exits once no game is in progress");
+					announced = true;
+				}
+				if (matchState.load() == IDLE)
+				{
+					stopFlag.store(true);
+					break;
+				}
+			}
+			util::sleepMs(200);
+		}
+	});
 
 	while (!stopFlag)
 	{
@@ -330,6 +360,12 @@ int main(int argc, char **argv)
 				if (!challenge)
 					return true;
 				const ChallengeInfo info = parseChallenge(*challenge);
+				if (drainFlag.load())
+				{
+					util::info("draining, declining challenge from " + info.challenger);
+					client.declineChallenge(info.id, "later", callError);
+					return true;
+				}
 				std::string reason;
 				if (!acceptsChallenge(info, config, reason))
 				{
@@ -416,6 +452,8 @@ int main(int argc, char **argv)
 	}
 
 	util::info("shutting down");
+	if (drainWatcher.joinable())
+		drainWatcher.join();
 	if (scheduler.joinable())
 		scheduler.join();
 	if (gameThread.joinable())
